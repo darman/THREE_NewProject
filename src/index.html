@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="jp">
+	<head>
+		<title>three.js webgl - animation - skinning</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+		<style>
+			body {
+				text-align:center;
+				background-color: #000;
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+			}
+
+			#container {
+			}
+
+			a {
+				position: absolute;
+				background-color: #000;
+				color: #fff;
+				padding: 20px 0;
+				display: block;
+			}
+			a:hover {
+				background-color: #fff;
+				color: #000;
+			}
+			a#walk {
+				bottom: 0;
+				left: 0%;
+				width: 49%;
+			}
+			a#walk_run {
+				bottom: 0;
+				left: 50%;
+				width: 49%;
+			}
+			#out_log {
+				position: absolute;
+				top: 0;
+				left: 30%;
+				border: 1px solid #fff;
+				padding: 5px;
+				margin: 0;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<a id="walk">歩きますよ</a>
+		<a id="walk_run">走ります</a>
+		<p id="out_log">hello!</p>
+
+		<script src="lib/Three/three.min.js"></script>
+		<script src="lib/darman/darman.js"></script>
+
+		<script src="lib/Three/js/Detector.js"></script>
+		<script src="lib/Three/js/libs/stats.min.js"></script>
+		<script src="lib/Three/js/controls/OrbitControls.js"></script>
+		<script src="lib/Three/js/BlendCharacter.js"></script>
+		<script src="lib/Three/js/renderers/Projector.js"></script>
+
+		<!-- <script src="lib/Three/js/BlendCharacterGui.js"></script> -->
+		<!-- <script src="lib/Three/js/libs/dat.gui.min.js"></script> -->
+
+		<script>
+			'use strict';
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var blendMesh, helper, camera, scene, raycaster, renderer, controls;
+
+			var mouse = new THREE.Vector2(), INTERSECTED;
+
+			var clock = new THREE.Clock();
+
+			var outLog;
+
+			var paperList = [];
+
+
+			init();
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+				outLog = document.getElementById('out_log');
+
+				scene = new THREE.Scene();
+
+				var geometry = new THREE.PlaneGeometry( 10, 10, 2 );
+				var material = new THREE.MeshBasicMaterial( { color: 0xffffff, side: THREE.DoubleSide } );
+				var ground = new THREE.Mesh( geometry, material );
+				ground.rotation.x = Math.PI * 90 / 180;
+				ground.position.y = -1;
+				scene.add( ground );
+
+
+				for (var i = 0; i < 1000; i++) {
+					var s = new DARMAN.Paper();
+					s.position.x = Math.random() * 10 - 5;
+					s.position.y = Math.random() * 15;
+					s.position.z = Math.random() * 10 - 5;
+					s.rotation.x = Math.PI * ( Math.random() * 180 );
+					s.startY = s.position.y;
+					s.dropSpeed = Math.random() * 0.05+ 0.01;
+					s.rotSpeed = Math.random() * 0.05 + 0.02;
+					scene.add( s );
+					paperList[i] = s;
+				}
+
+				var box = new THREE.Mesh(	new THREE.BoxGeometry(1,1,1),
+													new THREE.MeshBasicMaterial({color:0xcccccc}))
+				// scene.add(box);
+
+
+				scene.add ( new THREE.AmbientLight( 0x404040 ) );
+
+				var light = new THREE.DirectionalLight( 0xeeeeee, 1.5 );
+				light.shadowDarkness = 0.5;
+				light.position.set( 0, 1000, 0 );
+				scene.add( light );
+
+				raycaster = new THREE.Raycaster();
+
+				renderer = new THREE.WebGLRenderer( { antialias: true, alpha: false } );
+				renderer.setClearColor( 0xfffaaa );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.autoClear = true;
+
+				// box.castShadow = true;
+				// light.castShadow = true;
+				// ground.receiveShadow = true;
+				// renderer.shadowMap.enabled = true;
+				// renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+
+				container.appendChild( renderer.domElement );
+
+				//
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				// var axis = new THREE.AxisHelper(1000);
+				// scene.add(axis);
+
+
+				//ボタンの定義
+				var run = document.getElementById( 'walk' );
+				run.addEventListener('click', function () {
+					blendMesh.play('walk');
+				})
+
+				var run2 = document.getElementById( 'walk_run' );
+				run2.addEventListener('click', function () {
+					blendMesh.stopAll();
+					blendMesh.crossfade( 'walk', 'sit', 1 );
+				})
+
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				//
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				blendMesh = new THREE.BlendCharacter();
+				blendMesh.load( "kuma.json", start );
+
+				blendMesh.castShadow = true;
+
+			}
+
+			function paper(argument) {
+				// body...
+
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+			}
+
+			function onDocumentMouseDown( evnet ) {
+				// body...
+				raycaster.setFromCamera( mouse, camera );
+
+				var intersects = raycaster.intersectObjects( scene.children );
+				console.log("intersects : " + intersects);
+				if ( intersects.length > 0 ) {
+
+					var mesh = intersects[ 0 ].object;
+					// mesh.position.y +=1;
+				} else {
+					// mesh.position.y -=1;
+					// mesh = null;
+				}
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function start() {
+
+				blendMesh.rotation.y = Math.PI * -135 / 180;
+				blendMesh.position.y = 1.5;
+				scene.add( blendMesh );
+
+				var aspect = window.innerWidth / window.innerHeight;
+				var radius = blendMesh.geometry.boundingSphere.radius;
+
+				camera = new THREE.PerspectiveCamera( 45, aspect, 1, 10000 );
+				camera.position.set( 0.0, radius, radius * 4.5 );
+
+				controls = new THREE.OrbitControls( camera );
+				controls.target.set( 0, 3, 0 );
+
+				// Set default weights
+				// blendMesh.applyWeight( 'idle', 1 / 2 );
+				// blendMesh.applyWeight( 'run', 1 / 2 );
+
+				blendMesh.applyWeight( 'walk', 1 / 2 );
+				blendMesh.applyWeight( 'sit', 1 / 2 );
+
+				onWindowResize();
+				animate();
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate, renderer.domElement );
+
+				var scale = 1;
+				var delta = clock.getDelta();
+				var stepSize = delta * scale;
+
+				blendMesh.rotation.y += 0.01;
+				blendMesh.update( stepSize );
+				blendMesh.position.y = 1.5;
+
+				for (var i = 0; i < paperList.length; i++) {
+					paperList[i].position.y -= paperList[i].dropSpeed;
+					paperList[i].rotation.y += paperList[i].rotSpeed;
+					if (paperList[i].position.y <= -1) {
+						paperList[i].position.y = paperList[i].startY;
+					}
+				}
+
+				renderer.render( scene, camera );
+				stats.update();
+				controls.update();
+
+				outLog.innerHTML = "window.innerWidth : " + window.innerWidth + "<br>" + "window.innerHeight : " + window.innerHeight;
+
+			}
+
+		</script>
+
+	</body>
+</html>

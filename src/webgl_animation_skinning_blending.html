@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - animation - skinning</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+		<style>
+			body {
+				text-align:center;
+				background-color: #000;
+				margin: 0;
+				padding: 0;
+				/*overflow: hidden;*/
+				width: 100%;
+				height: 100%;
+			}
+
+			a {
+				position: absolute;
+				background-color: #000;
+				padding: 20px;
+				color: #fff;
+			}
+			a#walk {
+				top: 0;
+				left: 10%;
+			}
+			a#walk_run {
+				top: 0;
+				left: 20%;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<a id="walk">歩きますよ</a>
+		<a id="walk_run">走ります</a>
+
+		<script src="/lib/Three/three.min.js"></script>
+
+		<script src="lib/Three/js/Detector.js"></script>
+		<script src="lib/Three/js/libs/stats.min.js"></script>
+		<script src="lib/Three/js/controls/OrbitControls.js"></script>
+		<script src="lib/Three/js/BlendCharacter.js"></script>
+		<!-- <script src="lib/Three/js/BlendCharacterGui.js"></script> -->
+		<!-- <script src="lib/Three/js/libs/dat.gui.min.js"></script> -->
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var blendMesh, helper, camera, scene, renderer, controls;
+
+			var clock = new THREE.Clock();
+			var gui = null;
+
+			var isFrameStepping = false;
+			var timeToStep = 0;
+
+			init();
+
+			function init() {
+
+				container = document.getElementById( 'container' );
+
+				var run = document.getElementById( 'walk' );
+				run.addEventListener('click', function () {
+					blendMesh.play('idle');
+				})
+
+				var run = document.getElementById( 'walk_run' );
+				run.addEventListener('click', function () {
+					blendMesh.stopAll();
+					blendMesh.crossfade( 'idle', 'walk', 3 );
+					isFrameStepping = false;
+				})
+
+				scene = new THREE.Scene();
+				scene.add ( new THREE.AmbientLight( 0xaaaaaa ) );
+
+				var light = new THREE.DirectionalLight( 0xeeeeee, 1.5 );
+				light.position.set( 0, 0, 1000 );
+				scene.add( light );
+
+				renderer = new THREE.WebGLRenderer( { antialias: true, alpha: false } );
+				renderer.setClearColor( 0x777777 );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.autoClear = true;
+
+				container.appendChild( renderer.domElement );
+
+				//
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				container.appendChild( stats.domElement );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				blendMesh = new THREE.BlendCharacter();
+				blendMesh.load( "anim.json", start );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function start() {
+
+				blendMesh.rotation.y = Math.PI * -135 / 180;
+				scene.add( blendMesh );
+
+				var aspect = window.innerWidth / window.innerHeight;
+				var radius = blendMesh.geometry.boundingSphere.radius;
+
+				camera = new THREE.PerspectiveCamera( 45, aspect, 1, 10000 );
+				camera.position.set( 0.0, radius, radius * 3.5 );
+
+				controls = new THREE.OrbitControls( camera );
+				controls.target.set( 0, radius, 0 );
+				controls.update();
+
+				// Set default weights
+				blendMesh.applyWeight( 'idle', 1 / 2 );
+				blendMesh.applyWeight( 'walk', 1 / 2 );
+
+				animate();
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate, renderer.domElement );
+
+				var scale = 1;
+				var delta = clock.getDelta();
+				var stepSize = (!isFrameStepping) ? delta * scale: timeToStep;
+
+				blendMesh.rotation.y += 0.01;
+				blendMesh.update( stepSize );
+
+				renderer.render( scene, camera );
+				stats.update();
+
+
+			}
+
+		</script>
+
+	</body>
+</html>

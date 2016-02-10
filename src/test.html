@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<script src="lib/darman/darman.js" charset="utf-8"></script>
+	<script src="lib/Tweenmax/minified/TweenMax.min.js" charset="utf-8"></script>
+
+	<script type="text/javascript">
+		'use strict';
+
+		var stage = document.body;
+		var controller;
+
+		init();
+
+		function init() {
+
+			var earth = new DARMAN.Earth("Earth.");
+			var omae = earth.plusName("ore:");
+			document.writeln(omae);
+
+			earth.kaitensuu = 10;
+			console.log(earth.kaitensuu);
+
+			earth.name = "first Earth";
+			console.log(earth.name);
+
+			controller = new DARMAN.Make();
+			stage.appendChild(controller.element);
+
+			controller.element.addEventListener("DOMNodeInserted", function (event) {
+				controller.width = parseInt(event.target.style.width);
+				controller.height = parseInt(event.target.style.height);
+			}, false);
+
+			var btn1 = new DARMAN.Make();
+			btn1.graphics("#000000", 100, 100);
+			btn1.text = "hover";
+			btn1.x = 0;
+			btn1.y = 0;
+			btn1.element.addEventListener("mouseover", function (e) {
+				e.target.style.backgroundColor = "#0ff";
+				e.target.style.cursor = "pointer";
+			})
+			btn1.element.addEventListener("mouseleave", function (e) {
+				e.target.style.backgroundColor = "#000";
+			})
+			btn1.element.addEventListener("click", function (e) {
+				// e.target.style.width = "200px";
+				TweenMax.to(e.target, 1, {y:-100,width:300});
+			})
+			controller.element.appendChild(btn1.element);
+
+
+			onWindowResize();
+			window.addEventListener( 'resize', onWindowResize, false );
+		}
+
+		function onWindowResize() {
+			console.log("resize");
+			controller.x = window.innerWidth / 2 - controller.width / 2;
+			controller.y = window.innerHeight - controller.height;
+			console.log(controller.width);
+		}
+
+
+
+
+	</script>
+</body>
+</html>
