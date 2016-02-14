@@ -101,14 +101,14 @@
 				scene.add( ground );
 
 
-				for (var i = 0; i < 1000; i++) {
+				for (var i = 0; i < 500; i++) {
 					var s = new DARMAN.Paper();
 					s.position.x = Math.random() * 10 - 5;
 					s.position.y = Math.random() * 15;
 					s.position.z = Math.random() * 10 - 5;
 					s.rotation.x = Math.PI * ( Math.random() * 180 );
 					s.startY = s.position.y;
-					s.dropSpeed = Math.random() * 0.05+ 0.01;
+					s.dropSpeed = Math.random() * 0.05 + 0.01;
 					s.rotSpeed = Math.random() * 0.05 + 0.02;
 					scene.add( s );
 					paperList[i] = s;
