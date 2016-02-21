@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+</head>
+<body>
+	<style media="screen">
+		html, body, div {
+			margin:0;
+			padding:0;
+			overflow: hidden;
+		}
+	</style>
+	<script src="lib/Three/three.min.js"></script>
+	<script src="lib/perlin-noise-simplex.js"></script>
+	<script src="lib/Three/js/controls/OrbitControls.js" charset="utf-8"></script>
+
+	<!-- <script src="lib/jYHe2.js"></script> -->
+	<!-- <script src="lib/SimplexNoise.js"></script> -->
+
+
+	<script>
+	var controls;
+
+	var width = window.innerWidth,
+        height = window.innerHeight,
+        clock = new THREE.Clock(),
+        cameraTarget = new THREE.Vector3(0, 0, 0),
+        renderer,
+        camera,
+        scene,
+        spotLight,
+        globalLight,
+        helper,
+        seas = [],
+        seaNum = 1;
+
+		/**
+	     * Sea class
+	     * @constructor
+	     */
+	    function Sea(w, h, col, row, opt) {
+	        this.init.apply(this, arguments);
+	    }
+	    Sea.prototype = {
+	        constructor: Sea,
+	        noiser: new SimplexNoise(),
+	        sp: 1.1,
+	        offset: 0,
+	        init: function (w, h, col, row, opt) {
+
+	            opt || (opt = {});
+
+	            this.sp = opt.sp || this.sp;
+	            this.noiser = new SimplexNoise();
+
+	            this.geometry = new THREE.PlaneGeometry(w, h, col, row);
+
+	            for (var i = 0, l = this.geometry.vertices.length; i < l; i++) {
+	                var vertex = this.geometry.vertices[i];
+	                vertex.z = this.noiser.noise(vertex.x / 10, vertex.y / 10) / 3;
+	            }
+
+	            this.geometry.computeFaceNormals();
+	            this.geometry.computeVertexNormals();
+
+	            this.mesh = new THREE.Mesh(
+	                this.geometry,
+	                (opt.material || new THREE.MeshPhongMaterial({
+	                    specular: 0x111111
+	                    ,shininess: 25
+	                    ,color: 0x000077
+						,shading : THREE.FlatShading
+						// ,wireframe: true
+	                }))
+	            );
+
+	            this.mesh.position = opt.position || new THREE.Vector3(0, 0, 0);
+	            // this.mesh.material.opacity = 0.5;
+	            // this.mesh.material.transparent = true;
+	            this.mesh.rotation.x = Math.PI / -2;
+	        },
+
+	        update: function () {
+
+	            var offset = (this.offset += this.sp);
+	            var geometry = this.geometry;
+	            var noiser = this.noiser;
+
+	            for (var i = 0, l = geometry.vertices.length; i < l; i++) {
+	                var vertex = geometry.vertices[i];
+	                vertex.z = noiser.noise((vertex.x + offset) / 10, (vertex.y + offset) / 10) / 0.5;
+	            }
+
+	            geometry.computeFaceNormals();
+	            geometry.computeVertexNormals();
+	            geometry.normalsNeedUpdate = true;
+	            geometry.verticesNeedUpdate = true;
+	        }
+	    };
+
+
+	    function init() {
+	        scene = new THREE.Scene();
+	        scene.fog = new THREE.FogExp2(0x330000, 0.008);
+
+	        camera = new THREE.PerspectiveCamera(40, width / height, 1, 1000);
+	        camera.position.set(0, 10, 110);
+			// camera.position.set(200,300,500);
+	        camera.lookAt(cameraTarget);
+
+			var loader = new THREE.JSONLoader();
+			loader.load( "./models/onigashima.json", function ( geometry, materials ) {
+				var material = new THREE.MeshLambertMaterial( {
+					vertexColors: THREE.FaceColors,
+					// morphTargets: true,
+					// overdraw: 1
+					fog: false
+				} );
+				// var material = new THREE.MultiMaterial( materials );
+				var object = new THREE.Mesh( geometry, material );
+				object.scale.set(2,2,2);
+				object.position.set(0,-1,-0);
+				scene.add( object );
+			});
+
+
+	        renderer = new THREE.WebGLRenderer();
+	        renderer.setSize(width, height);
+			renderer.setClearColor(0x330000);
+	        renderer.shadowMap.enabled = true;
+	        document.body.appendChild(renderer.domElement);
+
+			controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+	        spotLight = new THREE.SpotLight(0xffffff, 3);
+	        spotLight.position.set(0, 20, -15);
+	        scene.add(spotLight);
+
+
+	        globalLight = new THREE.DirectionalLight(0xefefff, 1);
+	        globalLight.position.set(1, 1, 1).normalize();
+	        globalLight.castShadow = true;
+	        globalLight.shadowMapWidth = 2048;
+	        globalLight.shadowMapHeight = 2048;
+
+	        var d = 1000;
+	        globalLight.shadowCameraLeft = -d;
+	        globalLight.shadowCameraRight = d;
+	        globalLight.shadowCameraTop = d;
+	        globalLight.shadowCameraBottom = -d;
+	        globalLight.shadowCameraNear = 1;
+	        globalLight.shadowCameraFar = 1000;
+	        globalLight.shadowCameraFov = 40;
+
+	        // globalLight.shadowCameraVisible = true;
+
+	        globalLight.shadowBias = 0.0001;
+	        globalLight.shadowDarkness = 0.5;
+	        scene.add(globalLight);
+
+			// var ambient = new THREE.AmbientLight(0x404040);
+			// scene.add(ambient);
+
+	        // helper = new THREE.AxisHelper(30);
+	        // scene.add(helper);
+	    }
+
+	    function main() {
+
+	        for (var i = 0; i < seaNum; i++) {
+	            seas[i] = new Sea(200, 200, 32, 32, {
+	                sp: Math.random() * 0.2,
+	                position: new THREE.Vector3(0, i * 1.5, 0)
+	            });
+
+	            scene.add(seas[i].mesh);
+	        }
+
+			window.addEventListener("mousemove", move)
+	    }
+
+		var mousePos=0;
+		function move(e) {
+			mousePos = e.clientX;
+			// mousePos.y = e.clientX;
+		}
+
+	    function renderLoop() {
+	        requestAnimationFrame(renderLoop);
+	        var theta = clock.getElapsedTime();
+	        var dist = 100;
+	        // camera.position.x = dist * Math.sin(theta * 10 * Math.PI / 360);
+	        // camera.position.z = dist * Math.cos(theta * 10 * Math.PI / 360);
+
+			camera.lookAt(cameraTarget);
+			var center = window.innerWidth / 2;
+			camera.position.x += ((center - mousePos) * 0.05 - camera.position.x) * 0.1;
+
+	        for (var i = 0, l = seas.length; i < l; i++) {
+	            seas[i].update();
+	        }
+
+			controls.update();
+
+	        renderer.render(scene, camera);
+	    }
+
+	    init();
+	    main();
+	    renderLoop();
+
+
+	</script>
+</body>
+</html>
